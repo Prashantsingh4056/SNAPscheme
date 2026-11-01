@@ -29,7 +29,8 @@ SchemeSnap/
 ```bash
 cd backend
 cp .env.example .env
-# Edit .env and paste your Gemini API key
+# Edit .env and set GEMINI_API_KEYS to one or more comma-separated Gemini API keys.
+# GEMINI_API_KEY remains supported for a single key.
 ```
 
 ### 2. Run the backend
@@ -114,4 +115,3 @@ Open **http://localhost:5173** in your browser.
 ---
 
 *Built with ❤️ for citizens — civic technology that respects privacy.*
-
