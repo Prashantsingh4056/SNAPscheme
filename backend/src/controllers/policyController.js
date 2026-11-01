@@ -12,18 +12,58 @@
 import { GoogleGenAI } from '@google/genai';
 import pdfParse from 'pdf-parse';
 
-// ── Gemini client (lazy singleton) ────────────────────────────────────────────
+// ── Gemini clients (lazy per-key singletons) ──────────────────────────────────
 // Instantiated on first request so the server can boot even before .env is
 // populated; avoids a hard crash at import time during health checks.
-let _ai = null;
-const getAI = () => {
-  if (!_ai) {
-    if (!process.env.GEMINI_API_KEY) {
-      throw Object.assign(new Error('GEMINI_API_KEY is not configured. Add it to your .env file.'), { status: 503 });
-    }
-    _ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const _aiByKey = new Map();
+const getAPIKeys = () => {
+  const parseKeys = (configuredKeys) =>
+    [...new Set((configuredKeys || '').split(',').map((key) => key.trim()).filter(Boolean))];
+  const apiKeys = parseKeys(process.env.GEMINI_API_KEYS);
+  if (apiKeys.length === 0) {
+    apiKeys.push(...parseKeys(process.env.GEMINI_API_KEY));
   }
-  return _ai;
+  if (apiKeys.length === 0) {
+    throw Object.assign(
+      new Error('GEMINI_API_KEYS or GEMINI_API_KEY is not configured. Add it to your .env file.'),
+      { status: 503 },
+    );
+  }
+  return apiKeys;
+};
+
+const getAI = (apiKey) => {
+  if (!_aiByKey.has(apiKey)) {
+    _aiByKey.set(apiKey, new GoogleGenAI({ apiKey }));
+  }
+  return _aiByKey.get(apiKey);
+};
+
+const isQuotaOrRateLimitError = (error) => {
+  const status = Number(error?.status ?? error?.response?.status);
+  const code = String(error?.code ?? error?.error?.status ?? error?.error?.code ?? '');
+  const message = String(error?.message ?? error?.error?.message ?? '');
+  return (
+    status === 429 ||
+    /RESOURCE_EXHAUSTED/i.test(code) ||
+    /rate.?limit|quota|resource.?exhausted|too many requests/i.test(message)
+  );
+};
+
+const generateContentWithFallback = async (request) => {
+  const apiKeys = getAPIKeys();
+  for (let index = 0; index < apiKeys.length; index += 1) {
+    try {
+      return await getAI(apiKeys[index]).models.generateContent(request);
+    } catch (error) {
+      if (!isQuotaOrRateLimitError(error) || index === apiKeys.length - 1) {
+        throw error;
+      }
+      console.warn(
+        `[SchemeSnap] Gemini API key ${index + 1} was rate limited or quota exhausted; trying the next key.`,
+      );
+    }
+  }
 };
 
 // ── Supported languages → display label mapping ────────────────────────────────
@@ -128,7 +168,7 @@ export const simplifyPolicy = async (req, res) => {
     // ── 6. Build prompt & call Gemini 2.5 Flash ───────────────────────────────
     const prompt = buildSystemPrompt(textToProcess, language);
 
-    const response = await getAI().models.generateContent({
+    const response = await generateContentWithFallback({
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
@@ -150,8 +190,10 @@ export const simplifyPolicy = async (req, res) => {
     console.error('[SchemeSnap] Controller error →', error);
 
     // Surface Gemini API errors clearly
-    if (error?.status === 429) {
-      return res.status(429).json({ error: 'Gemini API rate limit reached. Please wait a moment and try again.' });
+    if (isQuotaOrRateLimitError(error)) {
+      return res.status(429).json({
+        error: 'All configured Gemini API keys are rate limited or quota exhausted. Please try again later.',
+      });
     }
     if (error?.status === 400) {
       return res.status(400).json({ error: 'Gemini rejected the request. The PDF content may contain unsupported characters.' });
