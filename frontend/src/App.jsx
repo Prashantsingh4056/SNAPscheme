@@ -274,17 +274,14 @@ export default function App() {
       <header className="border-b border-indigo-900/50 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-indigo-600 shadow-lg shadow-indigo-900">
-              <Sparkles className="w-5 h-5 text-white" />
+            <div className="rounded-xl bg-transparent border-2 border-indigo-500">
+              {/* <Sparkles className="w-5 h-5 text-white" /> */}
+              <img src="./logo2.png" width="50px" height="50px" alt="" className='rounded' />
             </div>
             <div>
               <h1 className="text-xl font-bold text-white tracking-tight">SchemeSnap</h1>
               <p className="text-xs text-indigo-400 tracking-wide">Policy Simplification Engine</p>
             </div>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Powered by Gemini 2.5 Flash</span>
           </div>
         </div>
       </header>
@@ -493,7 +490,7 @@ export default function App() {
                   <span className="w-3 h-3 rounded-full bg-yellow-500" />
                   <span className="w-3 h-3 rounded-full bg-green-500" />
                 </div>
-                <span className="ml-2 text-xs text-slate-500 font-mono">schemesnap — output</span>
+                <span className="ml-2 text-xs text-slate-500 font-mono">SchemeSnap — output</span>
                 {result && <SuccessBadge fileName={result.fileName} />}
               </div>
 
@@ -619,7 +616,7 @@ export default function App() {
 
       {/* ── Footer ────────────────────────────────────────────────────────────── */}
       <footer className="border-t border-slate-900 mt-12 py-6 text-center text-xs text-slate-600">
-        <p>SchemeSnap · Zero-data-retention civic AI · Built with React, Tailwind CSS &amp; Gemini 2.5 Flash</p>
+        <p>SchemeSnap · Zero-data-retention civic AI · Built with React, Tailwind CSS</p>
       </footer>
     </div>
   );
